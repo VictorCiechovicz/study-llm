@@ -1,0 +1,16 @@
+# Dependências
+/node_modules
+
+# Arquivos de ambiente
+.env
+
+# Logs
+*.log
+
+# Diretórios de build/transpilação
+/dist
+/build
+
+# Arquivos específicos de editores ou IDEs
+/.vscode
+/.idea
