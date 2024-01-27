@@ -1,22 +1,15 @@
-import { OpenAI } from "langchain/llms/openai"
-import { ChatOpenAI } from "langchain/chat_models/openai"
-import { ChatPromptTemplate } from "langchain/prompts"
-import { BaseOutputParser, FormatInstructionsOptions } from "langchain/schema/output_parser"
-import { Callbacks } from "langchain/callbacks"
+import { SupabaseVectorStore } from "langchain/vectorstores/supabase" 
+import { OpenAIEmbeddings } from "langchain/embeddings/openai"
+import { createClient } from "@supabase/supabase-js"
+
 console.clear()
 console.log("---- initializing project ----")
 
+const supabaseKey= process.env.SUPABASE_KEY
+if(!supabaseKey) throw new Error("Expected SUPABASE KEY")
 
-class CommaSeparatedListOutputparser extends BaseOutputParser<string[]>{
-  async parse(text: string, callbacks?: Callbacks | undefined): Promise<string[]> {
-    return text.split(", ").map((empresa:string)=>empresa.trim())
-  }
-  getFormatInstructions(options?: FormatInstructionsOptions | undefined): string {
-    throw new Error("Method not implemented.")
-  }
-  lc_namespace: string[]=[]
-
-}
+const url = process.env.SUPABASE_URL
+if(!url) throw new Error("Expected SUPABASE URL")
 
 const configuration={
   openAIApiKey:process.env.OPEN_API_KEY,
@@ -24,33 +17,43 @@ const configuration={
 
 }
 
-//----------------------------------//
 
-/* const llm = new OpenAI(configuration)
-const responseLLM = await llm.invoke("Me de nomes de cachorros")
-console.log(responseLLM) */
+export const run = async()=>{
+const client = createClient(url,supabaseKey)
 
-//----------------------------------//
+//Implement in Supabase
+/* const vectorStore = await SupabaseVectorStore.fromTexts([
+  "Mundo Azul",
+  "Crianca perdida",
+  "Developer"
+],
+[
+  {id:1},
+  {id:2},
+  {id:3}
+],
+
+new OpenAIEmbeddings(configuration),
+{
+  client,
+  tableName:"documents",
+  queryName:"match_documents",
+}); */
 
 
-const chatModel= new ChatOpenAI(configuration)
-const parser = new CommaSeparatedListOutputparser()
+//Search data in Supabase
 
-const systemMessage = "Voce é um {profissional} {nivel} muito conhecido e {nivel1} confianca." 
+const vectorStore = await SupabaseVectorStore.fromExistingIndex(
+  new OpenAIEmbeddings(configuration),
+  {
+    client,
+    tableName:"documents",
+    queryName:"match_documents",
+  }
+)
 
-const humanMessage = "Qual seria um bom nome de empresa que trabalha com {tecnologia} ?"
+const resultOne =  await vectorStore.similaritySearch("Mundo")
+console.log(resultOne)
+}
+run();
 
-const chatPromptTemplate =   ChatPromptTemplate.fromMessages([
-  ["system",systemMessage],
-  ["human",humanMessage]
-])
-
-const chain =  chatPromptTemplate.pipe(chatModel).pipe(parser)
-
-const response = await chain.invoke({
-  profissional: "Programador",
-  nivel:"com",
-  nivel1:"pouca",
-  tecnologia:"Next.js"
-})
-console.log(response)
