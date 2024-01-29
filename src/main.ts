@@ -1,17 +1,34 @@
-import { TextLoader } from "langchain/document_loaders/fs/text"
-import { PDFLoader } from "langchain/document_loaders/fs/pdf";
+import { createClient } from '@supabase/supabase-js'
+import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
+import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
+import { SupabaseVectorStore } from 'langchain/vectorstores/supabase'
 console.clear()
-console.log("---- initializing project ----")
+console.log('---- initializing project ----')
 
+const supabaseKey = process.env.SUPABASE_KEY
+if (!supabaseKey) throw new Error('Expected SUPABASE KEY')
 
-//Text Loader
-/* const loader = new TextLoader("src/documents/doc.text");
-const doc = await loader.load();
+const url = process.env.SUPABASE_URL
+if (!url) throw new Error('Expected SUPABASE URL')
 
-console.log(doc) */
+const configuration = {
+  openAIApiKey: process.env.OPEN_API_KEY,
+  temperature: 0
+}
 
-//PDF Loader
-
-const loader = new PDFLoader("src/documents/bitcoin.pdf");
+const loader = new PDFLoader('src/documents/bitcoin.pdf')
 const pdf = await loader.load()
-console.log(pdf)
+
+const embedding = new OpenAIEmbeddings(configuration)
+const client = createClient(url, supabaseKey)
+
+const run = async () => {
+  const vectorStore = await SupabaseVectorStore.fromDocuments(pdf, embedding, {
+    client,
+    tableName: 'documents',
+    queryName: 'match_documents'
+  })
+  const resultOne = await vectorStore.similaritySearch('Satoshi')
+  console.log(resultOne)
+}
+run()
