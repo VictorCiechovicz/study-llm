@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { RetrievalQAChain } from 'langchain/chains'
+import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { SupabaseVectorStore } from 'langchain/vectorstores/supabase'
@@ -21,14 +23,34 @@ const pdf = await loader.load()
 
 const embedding = new OpenAIEmbeddings(configuration)
 const client = createClient(url, supabaseKey)
+const chatModel = new ChatOpenAI(configuration)
 
 const run = async () => {
-  const vectorStore = await SupabaseVectorStore.fromDocuments(pdf, embedding, {
+  //create embedding in supabase
+  /*   const vectorStore = await SupabaseVectorStore.fromDocuments(pdf, embedding, {
+    client,
+    tableName: 'documents',
+    queryName: 'match_documents'
+  }) */
+
+  // After embedding pdf using this stance
+  const vectorStore = new SupabaseVectorStore(embedding, {
     client,
     tableName: 'documents',
     queryName: 'match_documents'
   })
-  const resultOne = await vectorStore.similaritySearch('Satoshi')
-  console.log(resultOne)
+
+  const chain = RetrievalQAChain.fromLLM(
+    chatModel,
+    vectorStore.asRetriever(2),
+    {
+      returnSourceDocuments: true
+    }
+  )
+  const response = await chain.call({
+    query: 'Who is Satoshi Nakamoto?'
+  })
+
+  console.log(response.text)
 }
 run()
